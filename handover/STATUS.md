@@ -6,7 +6,7 @@
 
 ## 현재 단계
 
-수동 실행형 탐색기의 분석 흐름, 화면/API 및 단일 사용자 인증·run owner·호출 제한·task 복구 구현이 완료됐습니다. 신규 migration은 작성했지만 실제 Supabase 환경 설정과 적용은 하지 않아 영속 저장 end-to-end 검증은 아직 완료되지 않았습니다. 최신 구현 보고서가 이 파일의 과거 보안 상태 설명보다 우선합니다.
+수동 실행형 탐색기의 분석 흐름, 화면/API 및 단일 사용자 인증·run owner·호출 제한·task 복구 구현과 신규 migration 정적 검토가 완료됐습니다. Read-only preflight SQL을 준비했지만 원격 DB에는 접속하지 않았고 migration도 적용하지 않았습니다. 실제 Supabase 환경 설정과 영속 저장 end-to-end 검증은 미완료입니다. 최신 구현/검토 보고서가 이 파일의 과거 상태 설명보다 우선합니다.
 
 ## 구현 및 확인된 기능
 
@@ -33,20 +33,21 @@
 
 ## 미완료 / 주의 사항
 
-1. 전용 Supabase 프로젝트에서 SQL migration을 검토·적용해야 합니다. 스키마 변경은 사용자 승인이 필요한 작업입니다.
+1. 신규 migration 정적 검토와 read-only preflight SQL 작성은 완료됐습니다. 대상 Supabase의 실제 read-only preflight 및 migration 적용은 별도 승인/실행 단계가 필요합니다.
 2. `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`를 승인된 로컬/Vercel 비밀 환경변수에 설정해야 합니다. 비밀값을 Git에 저장하지 않습니다.
 3. Supabase 연결 후 `maxCandidates=1` 등 작은 규모로 start → step → status → results, 캔들 저장, 중복 upsert를 end-to-end 확인해야 합니다.
-4. Vercel 공개 전에 분석 API 접근 제어를 설정해야 합니다. 서버는 service role을 사용하므로 무인증 공개 상태로 배포하지 않습니다.
+4. 앱 단일 사용자 인증은 구현됐습니다. Vercel 보호 설정은 미구성 상태이며 공개 배포 전에 별도로 검토/승인해야 합니다.
 5. 원형파·후잔잔의 상세 판정 규칙은 미정입니다. 사용자 확정 규칙을 받은 뒤에만 신호 로직에 반영합니다.
 6. 후보 거래량 변화는 1h 캔들로 확인하는 후속 지표이며, 24h ticker만으로 계산하지 않습니다.
 
 ## 다음 작업 순서
 
-1. 전용 Supabase 연결 및 SQL 적용 승인/준비
-2. 환경변수 설정 후 소수 종목 end-to-end 테스트
-3. 재시도, 작업 lease 회복, 동시성 및 실패 거래소 분리 검증
-4. 배포 전 분석 API 인증·접근 제한 구성
-5. 확정된 파동 규칙을 `decisions/`에 기록한 후 선택적으로 구현
+1. Dashboard에서 전용 scanner Supabase project를 확인한 뒤 승인된 read-only role로 preflight SQL 결과를 확인
+2. 모든 conditional blocker와 owner-less legacy run의 처리 방식을 검토
+3. 별도 승인 후 atomic migration 적용과 승인된 secret store의 환경변수 provisioning
+4. staging에서 단일 후보 E2E, 중복 start, owner isolation, limiter 동시성 및 task lease/retry 확인
+5. Vercel 보호 설정과 배포는 별도 승인 후 진행
+6. 확정된 파동 규칙을 `decisions/`에 기록한 후 선택적으로 구현
 
 기존 변경사항을 보존하며, 데이터베이스·환경변수·외부 서비스 변경은 사전 승인 후 진행합니다.
 ## Supabase 준비 상태 검토 (2026-11-14)
@@ -141,14 +142,22 @@ GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·�
 5. 원형파·후잔잔 상세 판정 규칙은 별도 확정 후에만 분석 로직에 반영합니다.
 
 
-## 다음 단계: migration 정적 검토 및 read-only preflight 준비
+## 신규 migration 정적 검토 완료 (2026-11-14)
 
-구현 완료 후 바로 DB에 적용하지 않고, 먼저 신규 migration `supabase/migrations/20261114000200_auth_owner_recovery.sql`의 보안·기존 schema 호환성·RPC 호출부 일치·동시성·권한을 정적으로 재검토합니다.
+보고서: `reports/2026-11-14-migration-static-review.md`.
 
-- GPT Work 지시서: `instructions/05-migration-static-review.md`
-- 허용: 코드/SQL 읽기 전용 검토, catalog 기반 read-only preflight SQL 파일 작성, 문서 보고
-- 금지: 원격 Supabase 접속/쿼리, migration 적용, DB·환경변수·비밀값·Vercel 변경, 코드 수정
-- 결과 보고서: `reports/2026-11-14-migration-static-review.md`
-- Preflight SQL 예정 경로: `supabase/preflight/20261114000200_auth_owner_recovery_preflight.sql`
+- `supabase/migrations/20261114000200_auth_owner_recovery.sql`과 기존 `20261114000100_scanner.sql`, TypeScript RPC 호출부를 읽기 전용으로 정적 검토했습니다.
+- `supabase/preflight/20261114000200_auth_owner_recovery_preflight.sql`을 작성했습니다. catalog relation/column/function/ACL/RLS 조회와 guarded, aggregate-only row-state 조회로 구성했습니다.
+- 자체 텍스트 audit: 금지된 변경 statement 시작 0, SELECT/WITH 시작 43, guarded query_to_xml 8, to_regclass guard 27, trailing whitespace 0. 이 검사는 SQL parser나 DB 실행 검증이 아닙니다.
+- Migration / preflight SQL 모두 실행하지 않았습니다. Supabase 접속, DB query, 환경변수 접근/수정, migration 적용은 하지 않았습니다.
+- BLOCKER: 실제 대상 schema/data/function owners/ACL/policies 상태가 미확인이고, preflight 자체도 원격에서 실행하지 않았습니다. 이 상태로 migration 적용을 권고하지 않습니다.
+- 적용 전 추가로 확인할 stuck task 조건: attempts 한도 이상인 queued task, locked_at 없는 processing task, due time 없는 retry_wait task. Owner-null legacy run은 자동 backfill되지 않아 새 API에서 접근할 수 없습니다.
+- 사용자 코드 working tree는 수정·stage·commit하지 않았습니다. 생성한 preflight 파일만 local project에 남아 있습니다. 문서 저장소에는 이 보고서와 handover만 반영했습니다.
 
-정적 검토에서 blocker가 발견되면 해소 전까지 DB 적용을 진행하지 않습니다. read-only preflight 자료가 준비된 뒤 실제 대상 Supabase 프로젝트를 확인하고, 그 다음 별도 승인을 받아 원격 preflight를 진행합니다.
+### 다음 단계
+
+1. Dashboard에서 올바른 dedicated Supabase project를 확인한 후, 승인된 read-only role로 preflight 결과를 수집합니다.
+2. report의 blocker, schema drift, ACL/policy, function owner, duplicate key 및 task aggregate를 검토하고 legacy owner-null run 방침을 결정합니다.
+3. 백업/restore 계획, atomic migration runner, active worker drain을 확인한 후 migration 적용을 별도 승인합니다.
+4. 적용 후 staging에서 migration status, role grants, API authentication, idempotency, limiter concurrency와 retry/lease recovery를 검증합니다.
+5. 환경변수, Vercel protection, 배포는 각각 별도 승인 후 진행합니다.
