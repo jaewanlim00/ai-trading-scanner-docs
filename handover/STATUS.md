@@ -241,3 +241,21 @@ GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·�
 5. 별도 승인 후 migration 00200 적용 및 backup/restore 계획 확인
 6. server-only env 설정 승인 후 작은 후보 E2E, upsert, owner/limiter/recovery smoke test
 7. storage/egress/backup/retention 점검 후 staging 및 배포는 별도 승인
+
+
+## Supabase 신규 Secret Key 호환성 검토 (2026-11-14)
+
+보고서: `reports/2026-11-14-supabase-secret-key-compatibility.md`.
+
+- 현재 `lib/scanner/supabase.ts`는 `SUPABASE_SERVICE_ROLE_KEY`만 읽고 공통 REST/RPC 요청에 `apikey` 및 `Authorization: Bearer`를 함께 설정합니다. 따라서 legacy JWT service_role 경로만 고려돼 있으며 신규 `SUPABASE_SECRET_KEY`는 미지원입니다.
+- Supabase 공식 안내에 따르면 신규 Secret Key는 Data API에서 `apikey` 헤더로만 보내야 합니다. 해당 키를 Bearer로도 보내면 JWT 파싱으로 `Invalid JWT`가 날 수 있습니다. Secret Key도 RLS를 우회하는 서버 전용 비밀값입니다.
+- 제안 변경 범위는 helper 한 파일로 제한: URL + legacy/new 키 중 정확히 하나를 요구하고, 동시 설정은 fail closed, legacy는 두 헤더, 신규 secret은 apikey만 사용하며 입력된 Authorization도 제거합니다. CRUD/RPC와 no-store 및 오류 비노출은 보존합니다. 이번에는 코드 변경하지 않았습니다.
+- 보안 테스트 계획: legacy/new 각 헤더 구성, 둘 다/둘 다 없음 fail-closed, CRUD/RPC 요청 보존, 오류·로그 비밀값 비노출, server-only 경계 확인. 구현 승인 전이므로 테스트/build/DB smoke test는 실행하지 않았습니다.
+- 기존 migration 순서는 유지: `20261114000100_scanner.sql`을 먼저, 그 다음 첫 migration 적용 및 read-only preflight 검토 조건을 충족한 뒤 `20261114000200_auth_owner_recovery.sql`. 원격 DB 연결, SQL/migration 실행, 환경변수 및 package 변경, 프로젝트 생성은 하지 않았습니다.
+- 신규 키 헤더에 대한 근거는 Supabase 공식 문서 [키 이전 가이드](https://supabase.com/docs/guides/getting-started/migrating-to-new-api-keys), [API keys](https://supabase.com/docs/guides/getting-started/api-keys), [Data API routes](https://supabase.com/docs/guides/api/creating-routes)에 있습니다.
+
+### 다음 단계
+
+1. 별도 지시로 helper 키 모드 지원과 mock 기반 보안 테스트 구현을 승인합니다.
+2. 구현 후 lint/build 및 테스트를 실행하고 기존 API 경로가 유지되는지 확인합니다.
+3. 전용 Supabase 프로젝트 준비 및 별도 승인 전까지 원격 DB smoke test나 migration 적용은 하지 않습니다.
