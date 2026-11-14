@@ -47,20 +47,24 @@
 
 파일: `supabase/preflight/20261114000200_auth_owner_recovery_preflight.sql`
 
-실행 순서는 파일의 section 1–11입니다: 연결 identity/role → relation/RLS/column → constraints/index/history → policy → function ACL → table ACL → 민감값 없는 aggregate → approximate row estimate.
+실행 순서는 파일의 section 1–11입니다: 연결 identity/role → relation 종류/RLS/column → 모든 constraints/index/history → policy → function ACL → table ACL → 민감값 없는 aggregate (task status별 attempts 포함) → approximate row estimate.
 
-스크립트는 catalog 조회와 SELECT/WITH만 포함합니다. relation은 `to_regclass`로, optional column은 `pg_attribute`로 확인하고, data aggregate는 존재할 때만 고정된 SELECT 문자열을 `query_to_xml`에 전달합니다. 전체 row/payload, symbol, subject hash, key는 반환하지 않습니다. 정확한 데이터 분포는 aggregate XML 결과에서 status별 건수만 확인합니다.
+스크립트는 catalog 조회와 SELECT/WITH만 포함합니다. relation은 `to_regclass`로, optional column은 `pg_attribute`로 확인하고, data aggregate는 존재할 때만 고정된 SELECT 문자열을 `query_to_xml`에 전달합니다. 전체 row/payload, symbol, subject hash, key는 반환하지 않습니다. task attempt 한도 초과 집계는 queued, processing, retry_wait별로 별도 열을 반환합니다. 6개 대상 relation의 모든 CHECK 및 기타 제약조건과 전체 인덱스 정의(UNIQUE 여부 포함)를 조회합니다. relation_kind는 일반 테이블, 파티션 테이블, 뷰, materialized view, foreign table, 부재를 구분합니다. scanner_candles와 scanner_results에는 count(*) 전체 스캔을 하지 않고 pg_stat_user_tables.n_live_tup/n_dead_tup 통계 추정치를 사용합니다. 이 통계는 stale일 수 있습니다.
 
 자체 정적 점검:
 
 - 금지된 변경 statement 시작: **0**
-- SELECT/WITH query 시작: **43** (고정 query_to_xml 내부 SELECT 포함)
-- catalog-guarded query_to_xml: **8**
-- `to_regclass` guard: **27**
+- SQL 파일에서 SELECT/WITH로 시작하는 실행 문장: **42** (query_to_xml 내부 고정 SELECT 문자열도 모두 SELECT-only)
+- 고정 SELECT 문자열을 감싼 query_to_xml 호출: **6**
+- scanner_candles/scanner_results 전체 count(*): **0**
+- 대상 6개 relation의 CHECK/전체 constraint 조회: **포함**
+- 대상 6개 relation의 전체 인덱스 및 UNIQUE 정의 조회: **포함**
+- relation_kind 구분: TABLE / PARTITIONED_TABLE / VIEW / MATERIALIZED_VIEW / FOREIGN_TABLE / ABSENT 등
+- `to_regclass` references: **27**
 - trailing whitespace: **0**, 파일 끝 newline 있음
 - 이 점검은 텍스트 audit이며 SQL parser 또는 DB 실행 검증이 아닙니다.
 
-해석 시 `HISTORY_TABLE_ABSENT`는 migration ledger를 확인할 수 없다는 뜻이지 자동으로 미적용을 증명하지 않습니다. relation/required column absent, 예상 밖 function owner/ACL, invalid index, custom status constraint, 제한되지 않은 PUBLIC/anon/authenticated ACL, duplicate key group 또는 stuck task count가 있으면 보류합니다. `estimated_live_rows`는 통계치이므로 exact aggregate XML과 혼동하지 않습니다.
+해석 시 `HISTORY_TABLE_ABSENT`는 migration ledger를 확인할 수 없다는 뜻이지 자동으로 미적용을 증명하지 않습니다. relation/required column absent, 예상 밖 function owner/ACL, invalid index, custom status constraint, 제한되지 않은 PUBLIC/anon/authenticated ACL, duplicate key group 또는 stuck task count가 있으면 보류합니다. `estimated_live_rows`는 통계치이므로 exact aggregate XML과 혼동하지 않습니다. scanner_candles와 scanner_results는 추정치만 조회하며 전체 count(*)를 실행하지 않습니다.
 
 ## Rollback 및 운영 영향
 
@@ -73,3 +77,17 @@ migration은 기존 run을 삭제하거나 owner를 추측해 채우지 않습�
 - 기존 코드/migration 및 사용자의 working tree는 수정하지 않았습니다. stage/commit하지 않았습니다.
 - 원격 Supabase 접속/쿼리, migration 적용, 환경변수 변경은 하지 않았습니다.
 - 코드 전용 build/test는 실행하지 않았습니다. 이번 단계는 정적 검토와 SQL artifact 작성이며, DB SQL 역시 실행하지 않았습니다.
+
+## Read-only preflight 보완 (2026-11-14)
+
+사용자 검토에서 요청한 다섯 개선점을 preflight SQL에 반영했습니다.
+
+- task attempts 한도 초과 건수를 queued, processing, retry_wait 상태별 열로 분리했습니다.
+- scanner_runs, scanner_candidates, scanner_tasks, scanner_candles, scanner_results, scanner_api_limits의 모든 제약조건을 조회하도록 했습니다. 따라서 CHECK 제약조건도 빠짐없이 결과에 포함됩니다.
+- 6개 대상 테이블에 현재 정의된 전체 인덱스의 pg_get_indexdef를 출력하며, UNIQUE 여부·primary 여부·유효/ready 상태·predicate를 함께 보여줍니다.
+- relation inventory에 사람이 읽을 수 있는 relation_kind를 추가해 일반 테이블, 파티션 테이블, 뷰, materialized view, foreign table, 부재 등을 구분합니다.
+- scanner_candles와 scanner_results의 전체 count(*) 조회를 제거했습니다. 두 테이블도 pg_stat_user_tables.n_live_tup/n_dead_tup 통계 추정치만 사용합니다.
+
+수정 후 로컬 텍스트 audit은 금지된 변경 statement 시작 **0**, SELECT/WITH 실행 문장 시작 **42**, query_to_xml 호출 **6**, candles/results의 전체 count **0**, trailing whitespace **0**, EOF newline **있음**을 확인했습니다. SQL 자체는 실행하지 않았고 SQL parser 또는 원격 DB 검증도 하지 않았습니다. 동적 query_to_xml 안의 모든 고정 SQL 문자열은 SELECT aggregate만 포함합니다.
+
+이 갱신은 preflight SQL 파일과 문서에만 적용했습니다. migration, 코드, package, 환경변수, 원격 DB 및 다른 프로젝트는 변경하지 않았습니다.
