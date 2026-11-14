@@ -139,3 +139,16 @@ GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·�
 3. staging에서 1개 후보로 login, owner mismatch, idempotent start, 분산 limiter, retry/lease fencing, candle/result upsert를 검증합니다.
 4. Vercel 보호 설정 및 배포는 별도 승인 후 진행합니다.
 5. 원형파·후잔잔 상세 판정 규칙은 별도 확정 후에만 분석 로직에 반영합니다.
+
+
+## 다음 단계: migration 정적 검토 및 read-only preflight 준비
+
+구현 완료 후 바로 DB에 적용하지 않고, 먼저 신규 migration `supabase/migrations/20261114000200_auth_owner_recovery.sql`의 보안·기존 schema 호환성·RPC 호출부 일치·동시성·권한을 정적으로 재검토합니다.
+
+- GPT Work 지시서: `instructions/05-migration-static-review.md`
+- 허용: 코드/SQL 읽기 전용 검토, catalog 기반 read-only preflight SQL 파일 작성, 문서 보고
+- 금지: 원격 Supabase 접속/쿼리, migration 적용, DB·환경변수·비밀값·Vercel 변경, 코드 수정
+- 결과 보고서: `reports/2026-11-14-migration-static-review.md`
+- Preflight SQL 예정 경로: `supabase/preflight/20261114000200_auth_owner_recovery_preflight.sql`
+
+정적 검토에서 blocker가 발견되면 해소 전까지 DB 적용을 진행하지 않습니다. read-only preflight 자료가 준비된 뒤 실제 대상 Supabase 프로젝트를 확인하고, 그 다음 별도 승인을 받아 원격 preflight를 진행합니다.
