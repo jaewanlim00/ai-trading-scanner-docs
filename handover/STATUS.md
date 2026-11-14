@@ -6,7 +6,7 @@
 
 ## 현재 단계
 
-수동 실행형 탐색기의 분석 흐름과 화면/API 코드는 구현되어 있습니다. Supabase 환경 구성과 마이그레이션 적용이 되지 않아 전체 분석의 영속 저장 end-to-end 검증은 아직 완료되지 않았습니다.
+수동 실행형 탐색기의 분석 흐름, 화면/API 및 단일 사용자 인증·run owner·호출 제한·task 복구 구현이 완료됐습니다. 신규 migration은 작성했지만 실제 Supabase 환경 설정과 적용은 하지 않아 영속 저장 end-to-end 검증은 아직 완료되지 않았습니다. 최신 구현 보고서가 이 파일의 과거 보안 상태 설명보다 우선합니다.
 
 ## 구현 및 확인된 기능
 
@@ -20,7 +20,7 @@
 - 분석 시작, step, status, results API 구성. 시작 API는 Supabase 설정이 없으면 시장 호출 전에 중단
 - Supabase 스키마와 task claim RPC SQL 작성: `supabase/migrations/20261114000100_scanner.sql`
 
-## 최근 검증 결과
+## 이전 시장/API 검증 결과 (보안 적용 전 기록)
 
 - `npm.cmd run build`: 종료 코드 0
 - Production 서버의 `/api/markets`: HTTP 200, 2,107개 반환, 거래소별 758/528/821개, 누락 가격 0
@@ -115,3 +115,27 @@
 - 자동주문 또는 자동 감시
 
 GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·보존해야 합니다. 구현 후 빌드/테스트 결과와 미실행된 DB 검증을 구분해 보고해야 합니다.
+
+
+## 인증·소유권·작업 복구 구현 완료 (2026-11-14)
+
+구현 보고서: `reports/2026-11-14-auth-owner-retry-implementation.md`. 이 절이 이 파일의 과거 보안 분석/미완료 상태보다 최신 기준입니다.
+
+- 단일 비밀번호 + HMAC-SHA256 8시간 세션 로그인, HttpOnly/SameSite=Strict 쿠키, production Secure, canonical Origin 확인을 추가했습니다.
+- `/api/analysis/start|step|status|results`와 `/api/markets`를 인증으로 보호했습니다. run owner를 DB 조회와 claim RPC에 적용해 타 run은 404로 처리합니다.
+- DB 원자 limiter는 로그인 5/15분, start 3/10분, step 240/30분, status 320/30분, results 60/10분, markets 4/분으로 시작합니다. limiter 장애는 fail closed입니다.
+- start는 owner별 idempotency key를 사용하고, screening 도중 중단된 동일 키는 candidate/task upsert로 setup을 복구합니다.
+- task 최대 시도 4회, retry_wait + jitter exponential backoff(최대 60초), 2분 lease fencing 및 run reconciliation을 추가했습니다. 부분 실패 run은 `completed_with_errors`로 구분합니다.
+- 신규 migration: `supabase/migrations/20261114000200_auth_owner_recovery.sql`. 기존 `20261114000100_scanner.sql`은 그대로 보존했습니다.
+- `npm.cmd run build`: 최종 exit 0. `npm.cmd run lint`: exit 0. Node 내장 테스트 5/5 통과.
+- production 로컬 서버에서 session/markets/start는 인증 설정 누락으로 503을 반환해 fail-closed를 확인했습니다. 실제 로그인 성공과 거래소 호출은 실행하지 않았습니다.
+- DB migration/E2E, owner mismatch의 DB 런타임, limiter 동시성, stale lease 경쟁, Vercel 설정과 배포는 미실행입니다. 실제 인증 환경변수 값은 만들거나 등록하지 않았습니다.
+- 기존 코드 working tree 변경을 stage/commit하지 않았습니다. 문서 저장소에는 지시 범위의 보고서와 handover만 반영했습니다.
+
+### 다음 단계
+
+1. 전용 Supabase 프로젝트의 현재 schema/data/function owner/grant/policy/status를 read-only preflight로 점검합니다.
+2. 별도 승인 후 migration을 적용하고 승인된 비밀 저장소에 인증 및 Supabase 환경변수를 구성합니다.
+3. staging에서 1개 후보로 login, owner mismatch, idempotent start, 분산 limiter, retry/lease fencing, candle/result upsert를 검증합니다.
+4. Vercel 보호 설정 및 배포는 별도 승인 후 진행합니다.
+5. 원형파·후잔잔 상세 판정 규칙은 별도 확정 후에만 분석 로직에 반영합니다.
