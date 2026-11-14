@@ -275,3 +275,27 @@ GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·�
 ### 다음 단계
 
 사용자가 `better-sqlite3` runtime dependency 추가와 package manifest/lockfile 변경을 승인하면 체크포인트 후 구현을 시작합니다. 내장 `node:sqlite` 대안은 Release Candidate 안정성 등급이 있어 승인 후에도 선택이 필요하면 별도 지침을 확인합니다.
+
+
+## Supabase runtime 제거 및 로컬 SQLite 전환 완료 (2026-11-14)
+
+보고서: reports/2026-11-14-supabase-local-sqlite-transition.md. 이 절이 앞의 Supabase 연결 준비/키 호환성 단계보다 최신 상태입니다.
+
+- Supabase REST/RPC helper 및 서버 호출을 제거했습니다. SQLite adapter는 data/scanner.sqlite에 runs, candidates, tasks, candles, results를 저장하며 WAL/foreign key/unique keys와 transaction을 적용합니다. DB/backup/WAL/SHM 및 소스 체크포인트는 Git ignore입니다.
+- better-sqlite3@12.10.0을 Node 26.13.0 Windows x64에서 설치/로드 확인했습니다. DB 접근은 storage facade를 거쳐 이후 교체할 수 있습니다.
+- 로그인, HMAC session, HttpOnly/SameSite 쿠키, 세션 만료, POST Origin 보호를 유지했습니다. auth Origin은 loopback만 허용하고 Vercel에서는 fail closed 합니다. dev/start 스크립트는 127.0.0.1로 바인딩합니다.
+- login/start/step/status/results/markets 기존 요청 제한 정책을 유지하며 모두 local fixed-window memory limiter로 처리합니다. 카운터는 server restart 때 초기화됩니다.
+- UI에 저장된 run history 불러오기 및 수동 이어가기 기능을 추가했습니다. DB 초기화와 PowerShell backup/restore 및 다른 Windows PC 이동 방법을 README에 기록했습니다.
+- 최종 npm.cmd test: 12/12; npm.cmd run lint: exit 0; npx.cmd tsc --noEmit: exit 0; npm.cmd run build: exit 0.
+- 실제 API: login 성공, 1개 후보 analysis start→step→status→results 완료. 전체 시장 2,107개(Binance 758/OKX 528/Bybit 821), 후보 1개, task 완료 1/실패 0. candle 저장 1h 501 / 4h 501 / 1d 415. 롱/숏 결과 각 1개는 qualified=false로 results qualified count는 0개.
+- 재시작 후 로그인, history의 이전 run 1개, status/results 조회를 확인했습니다. 별도 /api/markets는 HTTP 200, 2,107개, 가격 누락 0, 오류 0, 705.2ms.
+- server는 검증 후 종료했습니다. local data/scanner.sqlite의 테스트 run/candle/result 기록은 보존했습니다.
+- .env.local, Supabase project, DB, migration, preflight SQL을 수정·적용하지 않았습니다. migration 두 개 및 preflight SQL은 지시대로 보존했습니다. app/lib runtime 검색에서 Supabase REST/RPC/env reference는 0건.
+- npm 출력에 moderate audit advisories 6건이 있었지만 audit fix/upgrade는 하지 않았습니다. native install script 승인은 better-sqlite3@12.10.0 단일 버전으로 제한했습니다. 체크포인트 대비 lockfile 기존 package version 변경/삭제 0건입니다.
+
+### 남은 제약 및 다음 단계
+
+1. local limiter 메모리는 프로세스 재시작 때 초기화되고 프로세스 간 공유되지 않습니다. loopback 서버 하나만 실행합니다.
+2. 실제 샘플은 long/short qualified 후보가 없습니다. 다른 후보 실행은 사용자가 수동으로 시작해야 합니다.
+3. DB 복원 및 타 PC 이동 명령은 README에 적었지만 실제 수행하지 않았습니다.
+4. 향후 인터넷 공개/다중 사용자 전환은 별도 프로젝트, 보안 설계 및 승인으로 진행합니다.
