@@ -209,3 +209,13 @@ GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·�
 - Supabase limiter와 데이터/작업/owner 검증은 변경하지 않았습니다. 실제 브라우저 및 DB end-to-end 검증은 미실행입니다.
 
 로컬에서 browser host와 `SCANNER_ALLOWED_ORIGIN`이 same scheme/port loopback인지 확인한 후 다시 검증합니다. limiter 통과 뒤에도 Supabase 미설정 시 분석은 기존대로 fail-closed 해야 합니다.
+
+
+### 로컬 Origin 런타임 확인 보충
+
+추가 관찰: `reports/2026-11-14-local-origin-runtime-check.md`.
+
+- 검토 시 `SCANNER_ALLOWED_ORIGIN`은 `http://localhost:3000`이었습니다. 이 값 외의 비밀 환경변수는 확인하지 않았습니다.
+- 현재 점검 시점에는 3000/3001 listener가 없었고, 자동화에서 열린 Chrome 탭도 scanner가 아니어서 실패 요청의 실제 POST Origin/GET Referer를 관측하지 못했습니다.
+- login/start POST는 같은 origin guard를 사용하므로 같은 origin/프로세스/설정이라면 결과가 같아야 합니다. 수정은 loopback host alias를 같은 scheme/port로 한정해 처리합니다. 실제 port mismatch가 있다면 계속 차단하며 configured origin을 실행 포트에 맞춰야 합니다.
+- 따라서 코드-level comparison defect는 보정했지만, 사용자가 본 특정 요청의 runtime mismatch는 다음 로컬 실행 때 브라우저 Network에서 실제 Origin을 확인해야 최종 확정할 수 있습니다. 환경변수는 변경하지 않았습니다.
