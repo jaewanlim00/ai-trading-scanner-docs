@@ -71,3 +71,12 @@
 6. 접근 제한 및 Vercel maxDuration/lease 확인 뒤 별도 배포 승인
 
 검토 상세의 심각도와 적용 전 절차는 위 보고서를 기준으로 합니다.
+
+## 다음 작업: API 보안 및 작업 복구 설계
+
+Supabase 준비 검토 보고서에서 확인된 High 위험을 먼저 해결하기 위해 읽기 전용 설계 단계를 추가했습니다.
+
+- 지시서: `instructions/03-api-security-recovery-design.md`
+- 목표: 인증·run 소유권·분산 rate limit·task 재시도/lease 복구 방안 설계
+- 이번 단계는 읽기 전용이며 코드, SQL, 원격 DB, 환경변수, 배포를 변경하지 않습니다.
+- 설계 보고서를 검토하고 사용자 승인을 받은 뒤에만 코드 구현 및 DB 변경을 별도 단계로 진행합니다.
