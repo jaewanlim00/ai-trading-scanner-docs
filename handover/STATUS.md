@@ -161,3 +161,15 @@ GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·�
 3. 백업/restore 계획, atomic migration runner, active worker drain을 확인한 후 migration 적용을 별도 승인합니다.
 4. 적용 후 staging에서 migration status, role grants, API authentication, idempotency, limiter concurrency와 retry/lease recovery를 검증합니다.
 5. 환경변수, Vercel protection, 배포는 각각 별도 승인 후 진행합니다.
+
+
+## Read-only preflight 보완 완료 (2026-11-14)
+
+보고서: `reports/2026-11-14-migration-static-review.md` (보완 절 참조).
+
+- preflight SQL에 task attempts 상태별 집계(queued/processing/retry_wait), 6개 대상 relation의 전체 constraints 및 CHECK, 전체 index/UNIQUE 정의, relation_kind 분류를 추가했습니다.
+- candles/results의 full `count(*)`를 제거하고 `pg_stat_user_tables`의 estimated live/dead rows만 조회합니다.
+- 텍스트 audit: 변경 statement 시작 0, SELECT/WITH 실행 문장 시작 42, query_to_xml 6, candles/results full count 0, trailing whitespace 0, EOF newline 있음. SQL 실행/parser 검증은 하지 않았습니다.
+- migration, DB, 환경변수, package, 앱 코드는 변경하지 않았고 원격 Supabase 접속/쿼리도 하지 않았습니다.
+
+다음 단계는 이전 섹션의 blocker 및 별도 승인 절차를 따릅니다. 원격 preflight 결과를 승인된 read-only role로 수집하기 전까지 migration 적용을 보류합니다.
