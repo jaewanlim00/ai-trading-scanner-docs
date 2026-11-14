@@ -259,3 +259,19 @@ GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·�
 1. 별도 지시로 helper 키 모드 지원과 mock 기반 보안 테스트 구현을 승인합니다.
 2. 구현 후 lint/build 및 테스트를 실행하고 기존 API 경로가 유지되는지 확인합니다.
 3. 전용 Supabase 프로젝트 준비 및 별도 승인 전까지 원격 DB smoke test나 migration 적용은 하지 않습니다.
+
+
+## Supabase 제거 및 로컬 SQLite 전환 — 사전 조사/승인 대기 (2026-11-14)
+
+초기 조사 보고서: `reports/2026-11-14-sqlite-transition-initial-assessment.md`.
+
+- 현재 local working tree에는 기존 사용자 코드 변경/미추적 파일이 있었고 그대로 보존했습니다. 로컬 `instructions/WORKFLOW.md`, `handover/STATUS.md`는 없어서 문서 저장소의 최신본을 읽었습니다. `.env.local`의 존재와 미추적 상태만 확인했으며 내용은 읽거나 기록하지 않았습니다.
+- 현재 저장소는 `lib/scanner/supabase.ts`에 CRUD/RPC가 모여 있지만 analysis start/step/status/results, candle cache, auth/login limiter가 이를 호출합니다. 분석 엔진 및 거래소 수집 코드는 DB와 분리되어 있어 알고리즘은 유지하면서 저장 adapter를 교체할 수 있습니다.
+- 코드 변경 전 기준: 보안 테스트 9/9, `npm.cmd run lint` exit 0, `npm.cmd run build` exit 0. Node v26.13.0에서 내장 `node:sqlite` 로딩은 확인했으나 Node 공식 문서상 Stability 1.2 Release Candidate입니다.
+- Windows/Node 26 호환에 대해 공식 release notes가 Node 26 prebuilt를 기록한 mature `better-sqlite3`가 유력한 선택입니다. 다만 runtime dependency 추가 및 `package.json`/`package-lock.json` 변경이 필요하므로 지시서의 사전 승인 규칙에 따라 설치/구현은 대기합니다.
+- 별도 승인 후 체크포인트 생성, SQLite adapter/schema, run/candidate/task/candle/result 저장 및 transaction/retry 복원, local rate limiter, Supabase env/code 제거, DB/backup gitignore 및 초기화/backup/restore 문서를 구현할 예정입니다. 실제 로컬 E2E와 재시작 persistence도 검증 예정입니다.
+- Supabase 프로젝트/DB/migration은 접속·변경·삭제하지 않았고, 기존 migration 두 파일은 그대로 유지합니다. 소스 및 package는 이번 단계에서 변경하지 않았습니다.
+
+### 다음 단계
+
+사용자가 `better-sqlite3` runtime dependency 추가와 package manifest/lockfile 변경을 승인하면 체크포인트 후 구현을 시작합니다. 내장 `node:sqlite` 대안은 Release Candidate 안정성 등급이 있어 승인 후에도 선택이 필요하면 별도 지침을 확인합니다.
