@@ -95,6 +95,7 @@ package 파일, 환경변수, 분석 알고리즘, SQLite schema/migration, 실�
 - 원형파/후잔잔 규칙은 실제 실행되지 않습니다. JSON 규칙은 저장되며 상태만 `unconfigured` 또는 `stored_not_executed`로 기록됩니다.
 - 정밀 분석 대상으로 선택되지 않은 후보는 결과 row가 없을 수 있어 방향별 분석 제외 이유/미실행 사유가 구조화되어 있지 않습니다. 1차 제외 이유와 정밀 분석 결과를 구분해 보여야 합니다.
 - 현재 결과 API는 qualified 결과만 반환하므로 향후 상세 분석 화면에서 미자격 양방향 점수를 보여주려면 API 계약을 별도로 늘려야 합니다.
+- 현재 분석 엔진의 RSI는 timeframe별로 50 위/아래에서 직전 RSI보다 증가/감소하는지를 방향 점수에 보조 가산합니다. 사용자가 향후 참고 기준으로 제시한 RSI 30/70 과매도·과매수 조건은 현재 구현에 없습니다. 이번 단계에서는 요청대로 기존 로직을 변경하지 않았습니다.
 
 따라서 다음 차트 구현 전에 알고리즘 임계값을 바꾸지 않고도 저장할 수 있는 `analysis_evidence` 구조를 설계하는 것이 적절합니다. 예: 실행/run, 후보, timeframe, evidence kind, start/end candle timestamp, anchor price, line slope, evaluation candle/time/price, boolean decision, reason code, algorithm version. 실제 갠각과 원형파의 세부 정의는 사용자 확정이 필요하며 이번 작업에서 임의 판정 규칙을 만들지 않았습니다.
 
