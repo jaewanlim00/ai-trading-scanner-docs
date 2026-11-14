@@ -196,3 +196,16 @@ GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·�
 - 제한만 대체했습니다. run 생성, owner 검증, candidate/task/candle/result 저장과 status 조회는 기존 Supabase 경로를 유지합니다. Supabase 미설정이면 분석은 계속 fail-closed 합니다.
 - `node --test tests/*.test.mjs`: 9/9; `npm.cmd run lint`: exit 0; `npm.cmd run build`: exit 0.
 - DB/API end-to-end 검증, 원격 접속, 환경변수 및 migration 변경은 하지 않았습니다. 로컬 memory limiter는 개발 서버 재시작 시 초기화됩니다.
+
+
+## 로컬 Origin 검증 보정 완료 (2026-11-14)
+
+보고서: `reports/2026-11-14-local-origin-validation.md`.
+
+- 로그인 POST와 analysis start/step POST는 동일한 `requireAllowedOrigin()` 검사를 사용합니다. status/results GET은 Origin guard 옵션 없이 세션을 확인하고, 개발 limiter 판정에 Origin이 없으면 Referer origin을 씁니다.
+- 403은 limiter가 아니라 exact origin comparison에서 생성됩니다. URL normalization 후에도 localhost, 127.0.0.1, IPv6 loopback alias는 이전에 서로 다른 host로 비교될 수 있었습니다. 실제 Chrome 요청 header는 scanner tab이 열려 있지 않아 직접 수집하지 못했습니다.
+- 개발 및 Vercel 미배포일 때만 loopback끼리 scheme/effective port가 같은 경우 alias를 인정하도록 보정했습니다. 다른 port/scheme, non-loopback은 거부하고 production은 HTTPS exact-origin 비교를 유지합니다.
+- `node --test tests/*.test.mjs`: 9/9; `npm.cmd run lint`: exit 0; `npm.cmd run build`: exit 0.
+- Supabase limiter와 데이터/작업/owner 검증은 변경하지 않았습니다. 실제 브라우저 및 DB end-to-end 검증은 미실행입니다.
+
+로컬에서 browser host와 `SCANNER_ALLOWED_ORIGIN`이 same scheme/port loopback인지 확인한 후 다시 검증합니다. limiter 통과 뒤에도 Supabase 미설정 시 분석은 기존대로 fail-closed 해야 합니다.
