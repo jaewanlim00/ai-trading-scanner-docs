@@ -93,3 +93,25 @@
 5. staging에서 미인증 차단, IDOR, 다중 인스턴스 limit, task recovery 검증
 6. 검증 후 배포 별도 승인
 
+
+
+## 다음 구현 단계 승인 및 지시서 발행 (2026-11-14)
+
+사용자가 다음 범위를 승인했습니다. GPT Work 작업 지시서: `instructions/04-auth-owner-retry-implementation.md`.
+
+승인된 범위:
+- 단일 사용자 로그인/서명 세션 및 로그인 UI
+- 분석 API와 market API 인증, run owner 검사
+- DB 기반 호출 제한 및 중복 start 방지 코드
+- task 재시도 상한, lease fencing, run 상태 정산 코드
+- 신규 forward migration SQL 파일 작성
+- 빌드/테스트, 구현 보고서 및 handover 갱신
+
+이번 승인에 포함되지 않은 항목:
+- 실제 Supabase DB에 migration 적용 또는 원격 DB 변경
+- 비밀값 생성·등록 및 환경변수 파일 변경
+- Vercel/WAF/Deployment Protection 설정
+- 외부 서비스 설정, 배포, 패키지 설치/버전 변경
+- 자동주문 또는 자동 감시
+
+GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·보존해야 합니다. 구현 후 빌드/테스트 결과와 미실행된 DB 검증을 구분해 보고해야 합니다.
