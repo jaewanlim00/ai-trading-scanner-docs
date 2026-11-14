@@ -14,7 +14,7 @@
 - 신규 환경변수 이름은 `SCANNER_LOGIN_PASSWORD`, `SCANNER_SESSION_SECRET`, `SCANNER_ALLOWED_ORIGIN`으로 한정했습니다. 모두 없거나 형식이 잘못되면 fail closed로 처리하고 응답에는 누락된 변수 이름만 포함합니다.
 - HMAC-SHA256 서명 세션(8시간)을 사용합니다. 서명 비교와 비밀번호 비교는 timing-safe 비교를 사용합니다. 쿠키는 HttpOnly, SameSite=Strict, Path=/이며 production Secure를 적용합니다.
 - Origin은 설정된 canonical origin과 정확히 비교하며 production의 비 HTTPS origin을 거부합니다. 로그인·로그아웃은 Origin 검사를 거칩니다.
-- 로그인 제한은 신뢰 가능한 Vercel 전달 IP 기반의 DB limiter를 사용합니다. 인증 후 `/api/analysis/start|step|status|results`와 `/api/markets`를 보호합니다. 세션 만료 401은 화면 polling을 중단하고 로그인 상태로 돌립니다.
+- 로그인 제한은 신뢰 가능한 Vercel 전달 IP 기반의 DB limiter를 사용합니다. 인증 후 `/api/analysis/start|step|status|results`와 `/api/markets`를 보호합니다. 민감한 API 응답은 `Cache-Control: no-store`를 지정하고, 세션 만료 401은 화면 polling을 중단하고 로그인 상태로 돌립니다.
 - run은 서버의 고정 principal ID로 생성합니다. status/results 조회와 task claim RPC에 owner 조건을 전달하고, 소유자가 없거나 다른 run은 404로 감춥니다.
 
 ### 호출 제한 및 중복 실행 복구
