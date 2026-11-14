@@ -185,3 +185,14 @@ GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·�
 - 실제 로그인 API 요청과 Supabase 검증은 수행하지 않았습니다. 로컬 카운터는 서버 프로세스 재시작 시 초기화됩니다.
 
 로컬에서 기존 auth 설정을 사용하고 SCANNER_ALLOWED_ORIGIN을 개발 서버 Origin과 정확히 일치시켜 확인합니다. 운영 사용 전 Supabase 환경 및 migration은 별도 승인된 절차로 구성·검증해야 합니다.
+
+
+## 로컬 분석 API 요청 제한 보완 완료 (2026-11-14)
+
+보고서: `reports/2026-11-14-local-analysis-rate-limit.md`.
+
+- 공통 `protectScannerApi()`를 사용하는 analysis start/step/status/results 네 scope를 조사하고, 로컬 메모리 limiter 분기를 추가했습니다. NODE_ENV=development, Vercel 미배포, configured loopback Origin과 정확한 일치 조건을 로그인과 공유합니다. GET에서 Origin이 없으면 Referer origin을 검사합니다.
+- 제한 정책은 변경하지 않았습니다: start 3/10분, step 240/30분, status 320/30분, results 60/10분. markets와 그 외 scope는 기존 Supabase limiter를 사용합니다.
+- 제한만 대체했습니다. run 생성, owner 검증, candidate/task/candle/result 저장과 status 조회는 기존 Supabase 경로를 유지합니다. Supabase 미설정이면 분석은 계속 fail-closed 합니다.
+- `node --test tests/*.test.mjs`: 9/9; `npm.cmd run lint`: exit 0; `npm.cmd run build`: exit 0.
+- DB/API end-to-end 검증, 원격 접속, 환경변수 및 migration 변경은 하지 않았습니다. 로컬 memory limiter는 개발 서버 재시작 시 초기화됩니다.
