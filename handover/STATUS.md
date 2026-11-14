@@ -299,3 +299,25 @@ GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·�
 2. 실제 샘플은 long/short qualified 후보가 없습니다. 다른 후보 실행은 사용자가 수동으로 시작해야 합니다.
 3. DB 복원 및 타 PC 이동 명령은 README에 적었지만 실제 수행하지 않았습니다.
 4. 향후 인터넷 공개/다중 사용자 전환은 별도 프로젝트, 보안 설계 및 승인으로 진행합니다.
+
+## 저장 분석 기록 삭제 및 차트 시각화 사전 조사 (2026-11-15)
+
+보고서: `reports/2026-11-15-run-history-delete-chart-readiness.md`.
+
+- 저장된 기록 목록에 개별 삭제, 확인창, 즉시 목록 갱신을 구현했습니다. API는 로그인 세션, Origin, owner 및 UUID를 검증하고 기존 analysis-results 요청 제한을 적용합니다.
+- 완료/부분 완료/실패 run만 트랜잭션에서 삭제합니다. screening/queued/processing은 거절합니다. FK cascade로 해당 run의 candidates/tasks/results를 지우며, run ID를 참조하지 않고 여러 분석에서 공유하는 candle cache는 보존합니다.
+- 테스트는 삭제 cascade, active run 거부, 다른 owner 보호, 공유 candle 유지, 삭제 뒤 sibling task 처리와 재시작 영속을 확인했습니다. 기존 기록 불러오기/이어하기는 유지했습니다.
+- 캔들 저장은 거래소·심볼·시간봉·timestamp 고유키입니다. 조회 함수는 완료 캔들만 timestamp 오름차순으로 반환하지만 브라우저용 candle API와 차트 컴포넌트는 아직 없습니다.
+- `lightweight-charts@^5.3.0`가 이미 package.json에 있으므로 이번에는 package를 변경하지 않았습니다. 기본 candlestick/line/marker 시각화에 충분하며, 후보 클릭 → run-owner 검증 candle API → 클라이언트 차트 구성안을 보고서에 제시했습니다.
+- 현재 저장되는 pivot 및 trendline 판단은 boolean 중심이며 좌표·기울기·기준점을 보존하지 않습니다. 갠각 evidence는 아직 없고, 원형파/후잔잔 규칙은 실행되지 않습니다. 임계값이나 분석 알고리즘은 변경하지 않았습니다.
+- 검증: `npm.cmd test` 12/12, `npm.cmd run lint` exit 0, `npx.cmd tsc --noEmit` exit 0, `npm.cmd run build` exit 0, `git diff --check` 이상 없음.
+- 삭제 행위는 임시 격리 DB에서 확인했고 실제 로컬 `data/scanner.sqlite` 이력은 조회하거나 변경하지 않았습니다. 수동 브라우저 UI 검증은 미실행입니다. 코드 변경은 기존 사용자 수정과 함께 local working tree에서 커밋하지 않았습니다.
+
+### 다음 단계
+
+1. 캔들 상세 API의 query/response와 UI의 후보 선택 및 시간봉 동작 확정
+2. 좌표와 근거를 보존할 evidence schema/API를 분석 알고리즘 변경 없이 설계
+3. 후보·owner 검증 candle API와 Lightweight Charts UI 구현
+4. mock/격리 DB 테스트 및 브라우저 UI 검증
+5. 갠각·원형파·후잔잔 규칙은 사용자 정의가 확정된 뒤에만 적용
+
