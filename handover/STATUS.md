@@ -219,3 +219,25 @@ GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·�
 - 현재 점검 시점에는 3000/3001 listener가 없었고, 자동화에서 열린 Chrome 탭도 scanner가 아니어서 실패 요청의 실제 POST Origin/GET Referer를 관측하지 못했습니다.
 - login/start POST는 같은 origin guard를 사용하므로 같은 origin/프로세스/설정이라면 결과가 같아야 합니다. 수정은 loopback host alias를 같은 scheme/port로 한정해 처리합니다. 실제 port mismatch가 있다면 계속 차단하며 configured origin을 실행 포트에 맞춰야 합니다.
 - 따라서 코드-level comparison defect는 보정했지만, 사용자가 본 특정 요청의 runtime mismatch는 다음 로컬 실행 때 브라우저 Network에서 실제 Origin을 확인해야 최종 확정할 수 있습니다. 환경변수는 변경하지 않았습니다.
+
+
+## Supabase 연결 사전 점검 완료 (2026-11-14)
+
+보고서: `reports/2026-11-14-supabase-connection-preflight.md`.
+
+- 신규 프로젝트용 migration은 00100 scanner schema → 00200 owner/rate-limit/retry extension 순서입니다. 6개 table, key/index/constraints, 6 RPC 및 RLS/grants를 정리했습니다. 모든 테이블은 RLS enabled이며 migration은 anon/authenticated policy를 생성하지 않고 backend service role로 접근합니다.
+- dedicated Supabase project는 자체 Postgres/database를 가지므로 기존 family-learning/WORD MASTER 데이터와 분리하는 구성이 적합합니다. 이번에는 해당 프로젝트를 열거나 조회하지 않았습니다.
+- 현재 연결 변수 이름은 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`; 앱 인증 설정은 `SCANNER_LOGIN_PASSWORD`, `SCANNER_SESSION_SECRET`, `SCANNER_ALLOWED_ORIGIN`입니다. 키 값은 읽거나 보고하지 않았습니다. `.env.local`은 `.gitignore`에 의해 무시되고 tracked file이 아닙니다. source search에서 NEXT_PUBLIC Supabase key 또는 browser DB call은 발견되지 않았습니다.
+- 호환성 주의: 현재 helper는 legacy service_role key만 사용합니다. Supabase 공식 안내는 legacy 키를 2026년 말까지 폐기할 예정이라고 하므로 새 secret key 지원과 REST Authorization header 처리를 별도 코드 승인 작업으로 확인해야 합니다.
+- Free plan은 $0, project당 500 MB DB, 낮은 7일 활동 시 자동 pause, 2 active free project organization/account quota 및 백업 부재를 고려해야 합니다. 정확한 요금/사용량 조건은 project 생성 직전에 공식 가격표와 Dashboard에서 다시 확인합니다.
+- 코드/migration/환경변수 변경, project 생성/연결, remote DB, SQL 실행, build/test는 하지 않았습니다.
+
+### 다음 연결 순서
+
+1. legacy/new key compatibility와 코드 변경 승인 여부 결정
+2. scanner 전용 project 및 비용/quota 승인
+3. 신규 DB에서 migration 00100 적용
+4. read-only 00200 preflight 실행 및 blocker 검토
+5. 별도 승인 후 migration 00200 적용 및 backup/restore 계획 확인
+6. server-only env 설정 승인 후 작은 후보 E2E, upsert, owner/limiter/recovery smoke test
+7. storage/egress/backup/retention 점검 후 staging 및 배포는 별도 승인
