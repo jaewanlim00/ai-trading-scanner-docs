@@ -173,3 +173,15 @@ GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·�
 - migration, DB, 환경변수, package, 앱 코드는 변경하지 않았고 원격 Supabase 접속/쿼리도 하지 않았습니다.
 
 다음 단계는 이전 섹션의 blocker 및 별도 승인 절차를 따릅니다. 원격 preflight 결과를 승인된 read-only role로 수집하기 전까지 migration 적용을 보류합니다.
+
+## 로컬 개발 로그인 제한 보완 완료 (2026-11-14)
+
+보고서: `reports/2026-11-14-local-login-rate-limit.md`.
+
+- 로컬 로그인만 NODE_ENV=development, Vercel 미배포, configured Origin과 정확히 일치하는 loopback Origin일 때 프로세스 메모리 limiter를 사용합니다. 한도는 기존 로그인 정책과 동일한 5회/15분입니다.
+- 운영/preview 조건 및 다른 Origin은 기존 Supabase RPC limiter 경로를 사용합니다. 분석 및 시장 API 제한과 Supabase 데이터 저장은 우회하지 않습니다.
+- 비밀번호 비교, 서명 세션 검증, 만료, Origin 보호를 유지했습니다. 패키지, 환경변수, DB, migration은 변경하지 않았습니다.
+- `npm.cmd run lint`: exit 0; 보안 테스트: 7/7; `npm.cmd run build`: exit 0.
+- 실제 로그인 API 요청과 Supabase 검증은 수행하지 않았습니다. 로컬 카운터는 서버 프로세스 재시작 시 초기화됩니다.
+
+로컬에서 기존 auth 설정을 사용하고 SCANNER_ALLOWED_ORIGIN을 개발 서버 Origin과 정확히 일치시켜 확인합니다. 운영 사용 전 Supabase 환경 및 migration은 별도 승인된 절차로 구성·검증해야 합니다.
