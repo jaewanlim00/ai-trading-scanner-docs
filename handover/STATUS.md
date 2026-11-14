@@ -49,3 +49,25 @@
 5. 확정된 파동 규칙을 `decisions/`에 기록한 후 선택적으로 구현
 
 기존 변경사항을 보존하며, 데이터베이스·환경변수·외부 서비스 변경은 사전 승인 후 진행합니다.
+## Supabase 준비 상태 검토 (2026-11-14)
+
+읽기 전용 검토 보고서: `reports/2026-11-14-supabase-readiness-review.md`.
+
+- migration 및 코드 구조 검토와 빌드는 완료됐습니다. migration 적용 및 DB end-to-end 검증은 하지 않았습니다.
+- 빌드: `npm.cmd run build` escalation 실행 종료 코드 0. 첫 sandbox 실행은 Turbopack의 상위 폴더 접근 거부로 실패했습니다.
+- 코드 프로젝트 `master`의 기존 변경 파일은 작업 전후 동일합니다. 코드, 환경변수, 원격 DB, 배포는 이 단계에서 변경하지 않았습니다.
+- High 위험: 분석 API 네 route 모두 인증/소유권/rate-limit이 없고, migration은 기존 동명 객체·정책을 확인하지 않습니다. 공개 배포 금지, migration은 전용 빈 DB 확인 전 적용 금지.
+- High 위험: 2분 lease 만료 후 task 재claim에 최대 attempts가 없습니다. step은 60초 제한, CCXT fetch는 3회 retry지만 crash 재claim은 제한되지 않습니다.
+- Medium 위험: SECURITY DEFINER의 search_path가 public 단독, 기존 정책/grant 검사 없음, run 생성이 multi-request라 부분 기록이 남을 수 있습니다.
+- Supabase 환경변수 미설정, `.env.local` 없음. 원격 DB, effective role/RLS, migration 성공, 실제 upsert/lease 복구는 미검증입니다.
+
+### 다음 진행 순서
+
+1. 인증·소유권·호출 제한 개선 코드 작업 승인 및 적용
+2. 전용 Supabase 프로젝트와 migration 적용 대상 승인
+3. migration preflight에서 기존 객체·정책·grant·함수 owner를 read-only 확인
+4. 환경변수 설정 승인 후 비밀 저장소에만 등록
+5. staging에서 단일 후보 end-to-end, 중복 upsert, 동시 claim 및 failure recovery 검증
+6. 접근 제한 및 Vercel maxDuration/lease 확인 뒤 별도 배포 승인
+
+검토 상세의 심각도와 적용 전 절차는 위 보고서를 기준으로 합니다.
