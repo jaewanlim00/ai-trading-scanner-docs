@@ -121,7 +121,7 @@ GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·�
 
 구현 보고서: `reports/2026-11-14-auth-owner-retry-implementation.md`. 이 절이 이 파일의 과거 보안 분석/미완료 상태보다 최신 기준입니다.
 
-- 단일 비밀번호 + HMAC-SHA256 8시간 세션 로그인, HttpOnly/SameSite=Strict 쿠키, production Secure, canonical Origin 확인을 추가했습니다.
+- 단일 비밀번호 + HMAC-SHA256 8시간 세션 로그인, HttpOnly/SameSite=Strict 쿠키, production Secure, canonical Origin 확인을 추가했습니다. 민감한 API 응답은 no-store로 반환합니다.
 - `/api/analysis/start|step|status|results`와 `/api/markets`를 인증으로 보호했습니다. run owner를 DB 조회와 claim RPC에 적용해 타 run은 404로 처리합니다.
 - DB 원자 limiter는 로그인 5/15분, start 3/10분, step 240/30분, status 320/30분, results 60/10분, markets 4/분으로 시작합니다. limiter 장애는 fail closed입니다.
 - start는 owner별 idempotency key를 사용하고, screening 도중 중단된 동일 키는 candidate/task upsert로 setup을 복구합니다.
