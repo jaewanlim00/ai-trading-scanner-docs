@@ -310,6 +310,7 @@ GPT Work는 작업 전 현재 Git 상태와 기존 사용자 변경을 확인·�
 - 캔들 저장은 거래소·심볼·시간봉·timestamp 고유키입니다. 조회 함수는 완료 캔들만 timestamp 오름차순으로 반환하지만 브라우저용 candle API와 차트 컴포넌트는 아직 없습니다.
 - `lightweight-charts@^5.3.0`가 이미 package.json에 있으므로 이번에는 package를 변경하지 않았습니다. 기본 candlestick/line/marker 시각화에 충분하며, 후보 클릭 → run-owner 검증 candle API → 클라이언트 차트 구성안을 보고서에 제시했습니다.
 - 현재 저장되는 pivot 및 trendline 판단은 boolean 중심이며 좌표·기울기·기준점을 보존하지 않습니다. 갠각 evidence는 아직 없고, 원형파/후잔잔 규칙은 실행되지 않습니다. 임계값이나 분석 알고리즘은 변경하지 않았습니다.
+- RSI는 현재 50 위/아래에서 상승·하락하는 방향 모멘텀을 보조 점수화합니다. 향후 참고 기준으로 제시된 RSI 30/70 상태는 아직 구현되지 않았으며 이번에는 알고리즘을 바꾸지 않았습니다.
 - 검증: `npm.cmd test` 12/12, `npm.cmd run lint` exit 0, `npx.cmd tsc --noEmit` exit 0, `npm.cmd run build` exit 0, `git diff --check` 이상 없음.
 - 삭제 행위는 임시 격리 DB에서 확인했고 실제 로컬 `data/scanner.sqlite` 이력은 조회하거나 변경하지 않았습니다. 수동 브라우저 UI 검증은 미실행입니다. 코드 변경은 기존 사용자 수정과 함께 local working tree에서 커밋하지 않았습니다.
 
