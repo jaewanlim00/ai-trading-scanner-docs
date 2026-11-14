@@ -72,11 +72,24 @@
 
 검토 상세의 심각도와 적용 전 절차는 위 보고서를 기준으로 합니다.
 
-## 다음 작업: API 보안 및 작업 복구 설계
+## API 보안 및 작업 복구 설계 검토 완료 (2026-11-14)
 
-Supabase 준비 검토 보고서에서 확인된 High 위험을 먼저 해결하기 위해 읽기 전용 설계 단계를 추가했습니다.
+설계 보고서: reports/2026-11-14-api-security-recovery-design.md.
 
-- 지시서: `instructions/03-api-security-recovery-design.md`
-- 목표: 인증·run 소유권·분산 rate limit·task 재시도/lease 복구 방안 설계
-- 이번 단계는 읽기 전용이며 코드, SQL, 원격 DB, 환경변수, 배포를 변경하지 않습니다.
-- 설계 보고서를 검토하고 사용자 승인을 받은 뒤에만 코드 구현 및 DB 변경을 별도 단계로 진행합니다.
+- 읽기 전용 설계 분석만 완료했습니다. 코드, SQL, 원격 DB, 환경변수, 패키지, Vercel 설정, 배포는 변경하지 않았습니다.
+- 현재 네 분석 API에 인증 및 run owner 검사가 없습니다. service role은 RLS를 우회하므로 route와 claim RPC에서 owner 확인이 필요합니다.
+- 단일 사용자 권고: 새 패키지/IdP 없이 앱 단일 비밀번호 로그인과 HMAC 서명 HttpOnly session. Vercel Deployment Protection/WAF는 플랜과 적용 범위를 확인한 뒤 보조 경계로 사용합니다.
+- 서버리스 limiter는 Vercel WAF의 IP/path 제한과 Supabase 원자 RPC의 principal/run 제한을 조합합니다. 인스턴스 메모리 방식은 사용하지 않습니다.
+- task attempts 상한, 일시/영구 오류 분류, retry_wait, lease fencing, dead-letter/manual retry를 설계했습니다.
+- 실패 task가 포함된 run도 completed가 되는 현재 상태 계산과 start 과정의 부분 DB 기록 가능성을 확인했습니다.
+- 실제 Vercel 플랜/보호 범위, Supabase 스키마·권한, DB rate limit 동시성은 미검증입니다. 구현은 별도 승인을 기다립니다.
+
+### 다음 단계
+
+1. 사용자가 권고 인증 방식과 구현 범위를 승인
+2. 인증·owner·rate-limit 코드 설계 구현
+3. owner, limiter, retry 및 run reconciliation을 위한 새 migration 설계 후 schema 변경 승인
+4. 환경변수 provisioning 및 Vercel protection/WAF 설정 승인
+5. staging에서 미인증 차단, IDOR, 다중 인스턴스 limit, task recovery 검증
+6. 검증 후 배포 별도 승인
+
